@@ -163,7 +163,8 @@ int startGame()
             return 1;
     }
     printf("Total of player cards now: %d\n\n",playerSum);
-    for (i = 0; i < 7; i++){ //maximum 9 times a player can get card to reach 21 points, 2 already taken so 7 left
+    for (i = 0; i < TURN_ARR_SIZE - 2; i++){
+    //maximum 9 times a player can get card to reach 21 points, 2 already taken so 7 left so (TURN_ARR_SIZE - 2)
         char UserInput = 'n';
         printf("if you want to get a card? Enter y otherwise n:\n");
         do{
@@ -212,8 +213,8 @@ int startGame()
     }
 
     //computer gets another card until botSum becomes greater than 16
-    for (i=0; i < 7 && botSum < 17; i++)
-    {
+    for (i=0; i <  TURN_ARR_SIZE - 2 && botSum < 17; i++){
+        //maximum 9 times a player can get card to reach 21 points, 2 already taken so 7 left so (TURN_ARR_SIZE - 2)
         botCards[i+2] = getTopCard(cards);
         printf("Computer cards with new card are:\n");
         displayCards(botCards,false);
@@ -224,7 +225,7 @@ int startGame()
         
         printf("Total of computer cards now: %d\n\n", botSum);
     }
-
+    //check the final winner of game
     finalWinner(botSum, playerSum);
 }
 

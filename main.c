@@ -7,8 +7,15 @@
 #include <stdbool.h>
 #include <time.h>
 
+
 #define DECK_SIZE 52
 #define TURN_ARR_SIZE 9
+static bool AceUp = false;  //keep track that Ace is 11 or 1 (hard or soft)
+
+//get random number in range
+int getRandom(int limit){
+    return (int)((double)rand() / ((double)RAND_MAX + 1) * limit);
+}
 
 //return value of KING QUEEN JACK otherwise return same value
 int getValue_JQK(int tValue)
@@ -20,24 +27,23 @@ int getValue_JQK(int tValue)
 }
 
 //function initialize deck and shuffles the card
-void ShuffleCards(int *cards){
+void ShuffleCards(int *cards) {
     // local variables
-    int tempVar,i;
-    int tempArray[DECK_SIZE];
+    int r, temp, i;
 
     for (i = 0; i < DECK_SIZE; i++)
-        tempArray[i] = (i/13+3)*100 + i%13 + 1;
-    
+        cards[i] = (i / 13 + 3) * 100 + i % 13 + 1;
+
+    i = DECK_SIZE;
     srand (time(NULL));
-    for (i = 0; i < DECK_SIZE; i++)
-    {
-        do{
-            tempVar = rand() % DECK_SIZE;
-        } while (tempArray[tempVar] == 0);
-
-        cards[i] = tempArray[tempVar];
-        tempArray[tempVar] = 0;
+    while(--i >= 0){  //fisher yates shuffle
+        r = getRandom(i);
+        //swapping
+        temp = cards[r];
+        cards[r] = cards[i];
+        cards[i] = temp;
     }
+
 }
 
 //function display the cards value
@@ -103,7 +109,7 @@ void finalWinner(int BotValue, int PlayerValue){
         EXIT_SUCCESS;
     }
     else if (PlayerValue == BotValue){
-        printf("Player and Computer have same score!\n");
+        printf("Game finished, Player and Computer have same score!\n");
         EXIT_FAILURE;
     }
     else if (PlayerValue < BotValue){
@@ -128,14 +134,56 @@ int ifPlayerWins(int tValue){
     }
 }
 
+//returns reasonable Ace value
+int getAceValue(int tPoints, bool isAceCard){
+    if(tPoints <= 11 && isAceCard){
+        AceUp = true;
+        tPoints += 10;
+    }
+    else if(AceUp && tPoints > 21){
+        AceUp = false;
+        tPoints -= 10;
+    }
+    return tPoints;
+}
+
+//return's total score of first two cards
+int getFirstTwoCardValue(int *inHandCards){
+    int i, cardSum = 0;
+    for (i = 0; i < 2; i++)
+    {
+        if (inHandCards[i]%100 == 1) {
+            cardSum = cardSum + 1;
+            cardSum = getAceValue(cardSum,true);
+        }
+        else
+            cardSum = cardSum + getValue_JQK(inHandCards[i]) % 100;
+    }
+    return cardSum;
+}
+
+//return total with score of new card
+int getCardsSum(int newCardsPoint, int oldCardPoints){
+
+    if (newCardsPoint % 100 == 1) {
+        oldCardPoints = oldCardPoints + 1;
+        oldCardPoints = getAceValue(oldCardPoints,true);
+    }
+    else {
+        oldCardPoints = oldCardPoints + getValue_JQK(newCardsPoint) % 100;
+        oldCardPoints = getAceValue(oldCardPoints,false);
+    }
+    return  oldCardPoints;// return final total
+}
+
 // function starts the game
-int startGame()
-{
+int startGame(){
     // local variables
     int playerSum = 0, botSum = 0, i = 0;
     int playerCards[TURN_ARR_SIZE]={0};
     int botCards[TURN_ARR_SIZE]={0};
     int cards[DECK_SIZE];
+    bool bTakeMore = true;
 
     printf("Welcome to BlackJack!\n\n\n");
     ShuffleCards(cards);
@@ -145,84 +193,63 @@ int startGame()
     playerCards[1] = getTopCard(cards);
     botCards[1] = getTopCard(cards);;
 
+
     printf("Computer cards:\n");
     displayCards(botCards,true);
     printf("\nPlayer cards:\n");
     displayCards(playerCards,false);
-    //check if player win's with first 2 cards
-    for (i; i < 2; i++)
-    {
-        if (playerCards[i]%100 == 1)
-              playerSum = playerSum + (((playerSum + 11) <= 21) ? 11 : 1);//taking reasonable value of ACE
-        else if (getValue_JQK(playerCards[i]) %100 ==10)
-                    playerSum = playerSum + 10;
-        else
-            playerSum = playerSum + playerCards[i]%100;
+    //get sum of first 2 cards
+    playerSum = getFirstTwoCardValue(playerCards);
 
-        if(ifPlayerWins(playerSum) == 0)
-            return 1;
-    }
+    if(playerSum == 21)    //natural blackjack win check
+        bTakeMore = false;
     printf("Total of player cards now: %d\n\n",playerSum);
-    for (i = 0; i < TURN_ARR_SIZE - 2; i++){
-    //maximum 9 times a player can get card to reach 21 points, 2 already taken so 7 left so (TURN_ARR_SIZE - 2)
-        char UserInput = 'n';
-        printf("if you want to get a card? Enter y otherwise n:\n");
-        do{
-            UserInput = getchar();
-        } while (UserInput != 'y' && UserInput != 'Y' && UserInput != 'n' && UserInput != 'N');
+    if(bTakeMore){
+        for (i = 0; i < TURN_ARR_SIZE - 2; i++){
+        //maximum 9 times a player can get card to reach 21 points, 2 already taken then 7 left so (TURN_ARR_SIZE - 2)
+            char UserInput = 'n';
+            printf("if you want to get a card? Enter 'y' otherwise 'n':\n");
+            do{
+                UserInput = getchar();
+            } while (UserInput != 'y' && UserInput != 'n');
 
-        if (UserInput == 'y' || UserInput == 'Y')
-        {
-            printf("Cards in player hand now:\n");
-            playerCards[i+2] = getTopCard(cards);// giving new card
-            displayCards(playerCards,false);
+            if (UserInput == 'y' || UserInput == 'Y')
+            {
+                printf("Cards in player hand now:\n");
+                playerCards[i + 2] = getTopCard(cards);// giving new card
+                displayCards(playerCards,false);
+                playerSum = getCardsSum(playerCards[i+2],playerSum);
+                if(ifPlayerWins(playerSum) == 0)
+                    return 1;
 
-            if (playerCards[i+2]%100 == 1)
-                playerSum = playerSum + (((playerSum + 11) <= 21) ? 11 : 1);//taking reasonable value of ACE
-            else if (getValue_JQK(playerCards[i+2]) % 100 == 10)
-                playerSum = playerSum + 10;
-            else
-                playerSum = playerSum + playerCards[i+2] % 100;
-
-            if(ifPlayerWins(playerSum) == 0)
-                return 1;
-            printf("Total of player's cards now: %d\n\n",playerSum);
+                printf("Total of player's cards now: %d\n\n",playerSum);
+            }
+            else{
+                printf("Total of player's cards now: %d\n\n",playerSum);
+                break;
+            }
         }
-        else{
-            printf("Total of player's cards now: %d\n\n",playerSum);
-            break;
-        }
-    }
-    // if player chooses NO more cards then computer turn
-    printf("Computer cards:\n");
-    displayCards(botCards,false);
-    if ((botCards[0] % 100 + botCards[1] % 100) == 2)//if both cards of computer are Ace's
-    {
-        botSum=12;
-        printf("Total of computer cards now: %d\n\n", botSum);
-    }
-    else if (botCards[0]%100==1 || botCards[1]%100==1)
-    {
-        botSum=(botCards[0]+botCards[1])%100+(rand()%2)*10;
-        printf("Total of computer cards now: %d\n\n", botSum);
     }
     else
-    {
-        botSum = (getValue_JQK(botCards[0]))%100 + (getValue_JQK(botCards[1]))%100;
-        printf("Total of computer cards now: %d\n\n", botSum);
-    }
+        printf("Player has natural blackjack (21 Score), now Computer's turn!\n");
+
+    // if player chooses No more cards then computer turn
+    printf("Computer Turn!\n");
+    printf("Computer cards:\n");
+    displayCards(botCards,false);
+    AceUp = false;
+    botSum = getFirstTwoCardValue(botCards);//get total of first two cards
+    printf("Total of computer cards now: %d\n\n",botSum);
 
     //computer gets another card until botSum becomes greater than 16
+    //maximum 9 times a player can get card to reach 21 points
+    // 2 already taken then 7 left so (TURN_ARR_SIZE - 2)
     for (i=0; i <  TURN_ARR_SIZE - 2 && botSum < 17; i++){
-        //maximum 9 times a player can get card to reach 21 points, 2 already taken so 7 left so (TURN_ARR_SIZE - 2)
+
         botCards[i+2] = getTopCard(cards);
-        printf("Computer cards with new card are:\n");
+        printf("Computer with new card are:\n");
         displayCards(botCards,false);
-        if (botCards[i+2]%100 == 1)
-            botSum = botSum + (((botSum + 11) <= 21) ? 11 : 1);//taking reasonable value of ACE
-        else
-            botSum = botSum + getValue_JQK(botCards[i+2])%100;
-        
+        botSum = getCardsSum(botCards[i + 2],botSum); //return total after adding new card score
         printf("Total of computer cards now: %d\n\n", botSum);
     }
     //check the final winner of game
